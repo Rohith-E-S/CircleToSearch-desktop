@@ -14,17 +14,21 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Launch Setup for Hyprland
+1. Download portable binary from **[Releases](../../releases)** to desired location
+2. Copy the absolute path of the binary file.
+3. Add the following line to your Hyprland configuration file:
+   ```ini
+   bind = CTRL , PRINT ,exec , /path/to/CircleToSearch
+   ```
+4. Now `CTRL` + `PRINT` triggers the Circle to Search overlay.
+
 ## 🖱️ Usage
 1. Run the application.
 2. **Left-Click & Drag** to select a region.
 3. **Release** to search in your default browser.
 4. Press **Escape** to cancel.
 
-## 🏗️ Build from Source
-To generate your own optimized binary:
-```bash
-python build_apps.py
-```
 
 ## Dependencies
 - **PyQt6**: UI and image processing.
