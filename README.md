@@ -23,6 +23,25 @@ python main.py
    ```
 4. Now `CTRL` + `PRINT` triggers the Circle to Search overlay.
 
+## Launch Setup for GNOME
+1. Open **Settings** > **Keyboard** > **View and Customize Shortcuts**.
+2. Scroll down and select **Custom Shortcuts**.
+3. Click **Add Shortcut** (+).
+4. Fill in the details:
+   - **Name**: Circle to Search
+   - **Command**: `/path/to/CircleToSearch` (Replace with your actual path)
+   - **Shortcut**: Set your preferred keys (e.g., `Ctrl` + `Print`)
+5. Click **Add**.
+
+## Launch Setup for KDE Plasma
+1. Open **System Settings** > **Shortcuts** > **Custom Shortcuts**.
+2. Right-click in the list > **New** > **Global Shortcut** > **Command/URL**.
+3. Name it **Circle to Search**.
+4. In the **Trigger** tab, set your shortcut (e.g., `Ctrl` + `Print`).
+5. In the **Action** tab, enter the command:
+   `/path/to/CircleToSearch` (Replace with your actual path)
+6. Click **Apply**.
+
 ## 🖱️ Usage
 1. Run the application.
 2. **Left-Click & Drag** to select a region.
