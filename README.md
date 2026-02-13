@@ -8,20 +8,6 @@ A minimalist, high-performance, cross-platform "Circle to Search" implementation
 - **Wayland Support**: Native integration with `grim` for Hyprland/Sway users.
 - **Minimal Dependencies**: No heavy Python runtime required for the end user.
 
-## 🚀 Installation & Usage
-
-### 📥 Download Binary
-Download the latest portable binary for your OS from the **[Releases](../../releases)** page.
-
-### 🛠️ Build from Source (Rust)
-Prerequisites: `cargo` (Rust toolchain).
-
-```bash
-cd rust_app
-cargo build --release
-```
-The binary will be located at `rust_app/target/release/circle-to-search`.
-
 ### 🖱️ Usage
 1. Run the application (bind it to a shortcut like `Ctrl + Print` or `Super + S`).
 2. **Left-Click & Drag** to select a region on your screen.
