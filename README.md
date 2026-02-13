@@ -1,55 +1,58 @@
 # Circle to Search
 
-A minimalist, cross-platform "Circle to Search" implementation. Capture any part of your screen and instantly search for it online.
+A minimalist, high-performance, cross-platform "Circle to Search" implementation rewritten in **Rust**. Capture any part of your screen and instantly search for it online using Google Lens.
 
-## 🚀 Quick Start
+## ✨ Features
+- **Fast & Lightweight**: ~13MB binary (vs ~50MB+ Python), instant startup.
+- **Cross-Platform**: Works on Linux (X11 & Wayland), Windows, and macOS.
+- **Wayland Support**: Native integration with `grim` for Hyprland/Sway users.
+- **Minimal Dependencies**: No heavy Python runtime required for the end user.
+
+## 🚀 Installation & Usage
+
+### 📥 Download Binary
 Download the latest portable binary for your OS from the **[Releases](../../releases)** page.
-- **Linux**: `CircleToSearch` (Requires `grim` for Wayland)
-- **Windows**: `CircleToSearch.exe`
 
-## 🛠️ Run from Source
-If you prefer running the script directly:
+### 🛠️ Build from Source (Rust)
+Prerequisites: `cargo` (Rust toolchain).
+
 ```bash
-pip install -r requirements.txt
-python main.py
+cd rust_app
+cargo build --release
 ```
+The binary will be located at `rust_app/target/release/circle-to-search`.
 
-## Launch Setup for Hyprland
-1. Download portable binary from **[Releases](../../releases)** to desired location
-2. Copy the absolute path of the binary file.
-3. Add the following line to your Hyprland configuration file:
-   ```ini
-   bind = CTRL , PRINT ,exec , /path/to/CircleToSearch
-   ```
-4. Now `CTRL` + `PRINT` triggers the Circle to Search overlay.
-
-## Launch Setup for GNOME
-1. Open **Settings** > **Keyboard** > **View and Customize Shortcuts**.
-2. Scroll down and select **Custom Shortcuts**.
-3. Click **Add Shortcut** (+).
-4. Fill in the details:
-   - **Name**: Circle to Search
-   - **Command**: `/path/to/CircleToSearch` (Replace with your actual path)
-   - **Shortcut**: Set your preferred keys (e.g., `Ctrl` + `Print`)
-5. Click **Add**.
-
-## Launch Setup for KDE Plasma
-1. Open **System Settings** > **Shortcuts** > **Custom Shortcuts**.
-2. Right-click in the list > **New** > **Global Shortcut** > **Command/URL**.
-3. Name it **Circle to Search**.
-4. In the **Trigger** tab, set your shortcut (e.g., `Ctrl` + `Print`).
-5. In the **Action** tab, enter the command:
-   `/path/to/CircleToSearch` (Replace with your actual path)
-6. Click **Apply**.
-
-## 🖱️ Usage
-1. Run the application.
-2. **Left-Click & Drag** to select a region.
-3. **Release** to search in your default browser.
+### 🖱️ Usage
+1. Run the application (bind it to a shortcut like `Ctrl + Print` or `Super + S`).
+2. **Left-Click & Drag** to select a region on your screen.
+3. **Release** to automatically upload and search in your default browser.
 4. Press **Escape** to cancel.
 
+## 🔧 Integration Setup
 
-## Dependencies
-- **PyQt6**: UI and image processing.
-- **mss**: Screen capture.
-- **grim**: (Linux/Wayland only) Recommended for Hyprland/Sway.
+### Hyprland (Linux)
+Add this to your `hyprland.conf`:
+```ini
+bind = CTRL, PRINT, exec, /path/to/circle-to-search
+```
+
+### GNOME (Linux)
+1. **Settings** > **Keyboard** > **View and Customize Shortcuts** > **Custom Shortcuts**.
+2. Add new:
+   - **Command**: `/path/to/circle-to-search`
+   - **Shortcut**: `Ctrl + Print`
+
+### KDE Plasma (Linux)
+1. **System Settings** > **Shortcuts** > **Custom Shortcuts**.
+2. Create new **Global Shortcut** > **Command/URL**.
+3. **Action**: `/path/to/circle-to-search`
+
+### Windows
+Create a shortcut to the `.exe` and assign a hotkey in the shortcut properties.
+
+---
+
+## 🐍 Legacy Python Version
+The original Python implementation is still available in the root directory.
+
+
