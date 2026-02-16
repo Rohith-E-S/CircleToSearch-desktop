@@ -7,7 +7,6 @@ A minimalist, high-performance, cross-platform "Circle to Search" implementation
 - **Cross-Platform**: Works on Linux (X11 & Wayland), Windows, and macOS.
 - **Wayland Support**: Native integration with `grim` for Hyprland/Sway users.
 - **Async Search**: Non-blocking image upload with a visual loading spinner.
-- **Enhanced UI**: Crosshair cursor for precise selection.
 - **Minimal Dependencies**: No heavy Python runtime required for the end user.
 
 ## 🚀 Installation & Usage
@@ -48,11 +47,7 @@ Create a shortcut to the `.exe` and assign a hotkey in the shortcut properties.
 
 ## 🐍 Legacy Python Version
 The original Python implementation is available in the `python_app` directory.
-You can run it via the helper script:
-```bash
-./run.sh
-```
-Or directly:
+
 ```bash
 python3 python_app/python_src/main.py
 ```
