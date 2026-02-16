@@ -1,7 +1,7 @@
-use std::path::Path;
 use std::process::Command;
 use std::env;
 use serde::Deserialize;
+use image::DynamicImage;
 
 #[derive(Deserialize)]
 struct Monitor {
@@ -9,19 +9,19 @@ struct Monitor {
     focused: bool,
 }
 
-pub fn capture_screen(path: &Path) -> Result<(), String> {
+pub fn capture_screen() -> Result<DynamicImage, String> {
     let is_wayland = env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland";
 
     if is_wayland {
-        if capture_screen_grim(path).is_ok() {
-            return Ok(());
+        if let Ok(img) = capture_screen_grim() {
+            return Ok(img);
         }
     }
 
-    capture_screen_generic(path)
+    capture_screen_generic()
 }
 
-fn capture_screen_grim(path: &Path) -> Result<(), String> {
+fn capture_screen_grim() -> Result<DynamicImage, String> {
     // Try to capture focused output using hyprctl
     let output = Command::new("hyprctl")
         .args(&["monitors", "-j"])
@@ -31,12 +31,13 @@ fn capture_screen_grim(path: &Path) -> Result<(), String> {
         if let Ok(monitors) = serde_json::from_slice::<Vec<Monitor>>(&output.stdout) {
             for m in monitors {
                 if m.focused {
-                    let status = Command::new("grim")
-                        .args(&["-o", &m.name, path.to_str().unwrap()])
-                        .status();
-                    if let Ok(status) = status {
-                        if status.success() {
-                            return Ok(());
+                    let output = Command::new("grim")
+                        .args(&["-o", &m.name, "-"])
+                        .output();
+                    
+                    if let Ok(output) = output {
+                        if output.status.success() {
+                            return image::load_from_memory(&output.stdout).map_err(|e| e.to_string());
                         }
                     }
                 }
@@ -45,32 +46,31 @@ fn capture_screen_grim(path: &Path) -> Result<(), String> {
     }
 
     // Fallback to default grim
-    let status = Command::new("grim")
-        .arg(path.to_str().unwrap())
-        .status()
+    let output = Command::new("grim")
+        .arg("-")
+        .output()
         .map_err(|e| e.to_string())?;
 
-    if status.success() {
-        Ok(())
+    if output.status.success() {
+        image::load_from_memory(&output.stdout).map_err(|e| e.to_string())
     } else {
         Err("grim failed".to_string())
     }
 }
 
-fn capture_screen_generic(path: &Path) -> Result<(), String> {
+fn capture_screen_generic() -> Result<DynamicImage, String> {
     let screens = screenshots::Screen::all().map_err(|e| e.to_string())?;
-    
-    // For simplicity, we capture the first screen or the main one. 
-    // The Python code with mss captured "all" combined (-1).
-    // screenshots crate captures per screen.
-    // Handling multi-monitor "combined" image is complex (requires stitching).
-    // For now, let's capture the primary screen or the first one found.
-    // This is a slight divergence but safer for a first iteration.
     
     if let Some(screen) = screens.first() {
         let image = screen.capture().map_err(|e| e.to_string())?;
-        image.save(path).map_err(|e| e.to_string())?;
-        Ok(())
+        let width = image.width();
+        let height = image.height();
+        let data = image.into_raw();
+        
+        let new_image = image::RgbaImage::from_raw(width, height, data)
+            .ok_or("Failed to create image buffer")?;
+            
+        Ok(DynamicImage::ImageRgba8(new_image))
     } else {
         Err("No screens found".to_string())
     }
