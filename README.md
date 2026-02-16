@@ -6,7 +6,15 @@ A minimalist, high-performance, cross-platform "Circle to Search" implementation
 - **Fast & Lightweight**: ~13MB binary (vs ~50MB+ Python), instant startup.
 - **Cross-Platform**: Works on Linux (X11 & Wayland), Windows, and macOS.
 - **Wayland Support**: Native integration with `grim` for Hyprland/Sway users.
+- **Async Search**: Non-blocking image upload with a visual loading spinner.
+- **Enhanced UI**: Crosshair cursor for precise selection.
 - **Minimal Dependencies**: No heavy Python runtime required for the end user.
+
+## 🚀 Installation & Usage
+
+### 📥 Download Binary
+**No installation or building required.**
+Simply download the latest portable binary for your OS from the **[Releases](../../releases)** page.
 
 ### 🖱️ Usage
 1. Run the application (bind it to a shortcut like `Ctrl + Print` or `Super + S`).
@@ -39,6 +47,12 @@ Create a shortcut to the `.exe` and assign a hotkey in the shortcut properties.
 ---
 
 ## 🐍 Legacy Python Version
-The original Python implementation is still available in the root directory.
-
-
+The original Python implementation is available in the `python_app` directory.
+You can run it via the helper script:
+```bash
+./run.sh
+```
+Or directly:
+```bash
+python3 python_app/python_src/main.py
+```
