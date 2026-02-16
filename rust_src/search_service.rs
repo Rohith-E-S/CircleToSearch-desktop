@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::process::Command;
 use reqwest::blocking::multipart;
 use serde::Deserialize;
@@ -16,47 +15,70 @@ struct FileResponse {
 }
 
 fn open_browser(url: &str) -> Result<(), String> {
-    // 1. Try the cross-platform crate first
-    if webbrowser::open(url).is_ok() {
-        return Ok(());
-    }
-
-    // 2. Fallback: OS-specific commands
     #[cfg(target_os = "linux")]
     {
-        let commands = ["xdg-open", "google-chrome", "firefox", "chromium", "brave"];
+        use std::process::Stdio;
+        // 1. Try xdg-open with stderr silenced to avoid "parental controls" noise
+        if Command::new("xdg-open")
+            .arg(url)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .is_ok() 
+        {
+            return Ok(());
+        }
+        
+        // 2. Fallback browsers
+        let commands = ["google-chrome", "firefox", "chromium", "brave"];
         for cmd in commands {
-            if Command::new(cmd).arg(url).spawn().is_ok() {
+            if Command::new(cmd)
+                .arg(url)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .is_ok() 
+            {
                 return Ok(());
             }
         }
+        return Err("Could not open browser with any known command".to_string());
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(not(target_os = "linux"))]
     {
-        if Command::new("cmd").args(&["/c", "start", url]).spawn().is_ok() {
+        // 1. Try the cross-platform crate first
+        if webbrowser::open(url).is_ok() {
             return Ok(());
         }
-    }
 
-    #[cfg(target_os = "macos")]
-    {
-        if Command::new("open").arg(url).spawn().is_ok() {
-            return Ok(());
+        // 2. Fallback: OS-specific commands
+        #[cfg(target_os = "windows")]
+        {
+            if Command::new("cmd").args(&["/c", "start", url]).spawn().is_ok() {
+                return Ok(());
+            }
         }
-    }
 
-    Err("Could not open browser with any known command".to_string())
+        #[cfg(target_os = "macos")]
+        {
+            if Command::new("open").arg(url).spawn().is_ok() {
+                return Ok(());
+            }
+        }
+
+        Err("Could not open browser with any known command".to_string())
+    }
 }
 
-pub fn search(x: u32, y: u32, width: u32, height: u32, screenshot_path: &Path) -> Result<(), String> {
+pub fn search(x: u32, y: u32, width: u32, height: u32, img: &image::DynamicImage) -> Result<(), String> {
     // 1. Crop
-    let img = image::open(screenshot_path).map_err(|e| e.to_string())?;
     let cropped = img.crop_imm(x, y, width, height);
     
-    let temp_dir = Config::temp_path();
-    let cropped_path = temp_dir.join("crop.png");
-    cropped.save(&cropped_path).map_err(|e| e.to_string())?;
+    // Encode to PNG in memory
+    let mut buffer = std::io::Cursor::new(Vec::new());
+    cropped.write_to(&mut buffer, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    let bytes = buffer.into_inner();
 
     // 2. Upload
     let client = reqwest::blocking::Client::builder()
@@ -64,8 +86,7 @@ pub fn search(x: u32, y: u32, width: u32, height: u32, screenshot_path: &Path) -
         .build()
         .map_err(|e| e.to_string())?;
     
-    let part = multipart::Part::file(&cropped_path)
-        .map_err(|e| e.to_string())?
+    let part = multipart::Part::bytes(bytes)
         .file_name("crop.png")
         .mime_str("image/png")
         .map_err(|e| e.to_string())?;
