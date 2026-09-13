@@ -100,12 +100,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-artifacts: true
 
       - name: Inspect artifacts and generate checksums
         working-directory: artifacts
         shell: bash
         run: |
+          find . -mindepth 2 -type f -exec mv -t . {} +
+          find . -mindepth 1 -type d -delete
           ls -la
           sha256sum circle-to-search-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
