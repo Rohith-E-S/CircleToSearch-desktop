@@ -105,8 +105,11 @@ jobs:
         working-directory: artifacts
         shell: bash
         run: |
-          find . -mindepth 2 -type f -exec mv -t . {} +
-          find . -mindepth 1 -type d -delete
+          mkdir -p dist
+          find . -mindepth 2 -type f -exec mv -t dist/ {} +
+          rm -rf circle-to-search-*
+          mv dist/* .
+          rmdir dist
           ls -la
           sha256sum circle-to-search-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
