@@ -46,8 +46,20 @@ Create a shortcut to the `.exe` and assign a hotkey in the shortcut properties.
 ---
 
 ## 🐍 Legacy Python Version
-The original Python implementation is available in the `python_app` directory.
+The original Python implementation is available in `python_src` and requires Python 3, PyQt6, and mss.
 
 ```bash
-python3 python_app/python_src/main.py
+python3 -m pip install PyQt6 mss
+python3 python_src/main.py
 ```
+
+## Privacy and platform notes
+
+Releasing a valid selection uploads that region to the third-party host uguu.se and opens it in Google Lens. Avoid selecting sensitive information. Escape closes the Rust overlay even during a search, but cannot undo data already uploaded.
+
+On wlroots-based Wayland desktops, install `grim` for capture. Other Wayland compositors depend on the available capture backend; portal-based capture is not implemented. Capture and fullscreen-window placement may differ on multi-monitor setups. macOS requires screen-recording permission.
+
+## Development checks
+
+From `rust_src`, run `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, and `cargo test --locked`.
+From the repository root, run `python3 -B -m unittest discover -s python_src -p 'test_*.py' -v`; these legacy tests mock Qt and external services.

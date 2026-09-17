@@ -85,6 +85,7 @@ exe = EXE(
         print("="*50)
     except subprocess.CalledProcessError as e:
         print(f"Build failed with error: {e}")
+        raise
 
 if __name__ == "__main__":
     build()

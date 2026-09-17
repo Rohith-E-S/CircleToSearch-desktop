@@ -1,8 +1,9 @@
 import sys
 import os
 import subprocess
-import platform
 import shutil
+import math
+from tempfile import TemporaryDirectory
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QPoint, QRect
 from PyQt6.QtGui import QPainter, QPen, QColor, QPixmap, QCursor
@@ -24,6 +25,8 @@ class SelectionOverlay(QWidget):
         
         # Load background
         self.pixmap = QPixmap(screenshot_path)
+        if self.pixmap.isNull():
+            raise ValueError("Failed to load screenshot")
         
         if geometry:
             self.setGeometry(geometry)
@@ -72,6 +75,7 @@ class SelectionOverlay(QWidget):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self.dragging:
             self.dragging = False
+            self.current_pos = event.pos()
             self.finish_selection()
 
     def keyPressEvent(self, event):
@@ -79,35 +83,25 @@ class SelectionOverlay(QWidget):
             self.cleanup_and_exit()
 
     def finish_selection(self):
-        rect = QRect(self.drag_start, self.current_pos).normalized()
+        rect = QRect(self.drag_start, self.current_pos).normalized().intersected(self.rect())
         
         if rect.width() < 5 or rect.height() < 5:
             self.cleanup_and_exit()
             return
 
         self.hide()
-        # On HighDPI screens, the Qt coordinates might differ from the actual pixel coordinates of the screenshot.
-        # However, since we are displaying the screenshot in a fullscreen window, the coordinate space of the window
-        # should match the visual representation. If the screenshot was taken at native resolution and displayed
-        # at logical resolution, there might be a scale factor.
-        # For simplicity in this cross-platform script, we assume 1:1 or let the OS scaling handle it, 
-        # but robust implementations might need to account for devicePixelRatio().
-        
-        # If using grim (Wayland), it captures raw pixels. Qt might be using scaled points.
-        # We might need to scale the rect.
-        scale_factor = self.devicePixelRatio()
-        
-        x = int(rect.x() * scale_factor)
-        y = int(rect.y() * scale_factor)
-        w = int(rect.width() * scale_factor)
-        h = int(rect.height() * scale_factor)
-
-        SearchService.search(x, y, w, h, self.screenshot_path)
-        QApplication.quit()
+        try:
+            scale_x = self.pixmap.width() / self.width()
+            scale_y = self.pixmap.height() / self.height()
+            x = int(rect.x() * scale_x)
+            y = int(rect.y() * scale_y)
+            right = min(self.pixmap.width(), math.ceil((rect.x() + rect.width()) * scale_x))
+            bottom = min(self.pixmap.height(), math.ceil((rect.y() + rect.height()) * scale_y))
+            SearchService.search(x, y, right - x, bottom - y, self.screenshot_path)
+        finally:
+            self.cleanup_and_exit()
 
     def cleanup_and_exit(self):
-        if os.path.exists(self.screenshot_path):
-            os.remove(self.screenshot_path)
         QApplication.quit()
 
 def capture_screen_grim(path):
@@ -117,20 +111,19 @@ def capture_screen_grim(path):
         output = subprocess.check_output(["hyprctl", "monitors", "-j"]).decode()
         import json
         monitors = json.loads(output)
-        for m in monitors:
-            if m.get('focused'):
-                subprocess.run(["grim", "-o", m.get('name'), path], check=True)
-                return True
-    except (subprocess.CalledProcessError, FileNotFoundError, ImportError):
+        if isinstance(monitors, list):
+            for m in monitors:
+                if isinstance(m, dict) and m.get('focused') and isinstance(m.get('name'), str) and m['name']:
+                    subprocess.run(["grim", "-o", m['name'], path], check=True)
+                    return True
+    except (subprocess.CalledProcessError, OSError, ValueError):
         pass
     
     # Fallback to capturing the whole screen/region if hyprctl fails or simple grim invocation
     try:
         subprocess.run(["grim", path], check=True)
         return True
-    except subprocess.CalledProcessError:
-        return False
-    except FileNotFoundError:
+    except (subprocess.CalledProcessError, OSError):
         return False
 
 def capture_screen_mss(path):
@@ -154,31 +147,29 @@ def capture_screen_mss(path):
         return False
 
 def main():
-    Config.ensure_temp_path()
     app = QApplication(sys.argv)
-    
-    screenshot_path = os.path.join(Config.TEMP_PATH, "capture.png")
-    
-    # Strategy:
-    # 1. If Linux and Wayland, try grim.
-    # 2. If grim fails or other OS, use mss.
-    
-    captured = False
-    is_wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland"
-    
-    if is_wayland:
-        captured = capture_screen_grim(screenshot_path)
-    
-    if not captured:
-        captured = capture_screen_mss(screenshot_path)
-    
-    if not captured:
-        print("Failed to capture screenshot. Ensure 'grim' (Wayland) or 'mss' (X11/Windows) is available.")
-        sys.exit(1)
+    with TemporaryDirectory(prefix="circle-to-search-") as temp_path:
+        screenshot_path = os.path.join(temp_path, "capture.png")
+        captured = False
+        is_wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland"
 
-    overlay = SelectionOverlay(screenshot_path)
-    overlay.show()
-    sys.exit(app.exec())
+        if is_wayland:
+            captured = capture_screen_grim(screenshot_path)
+
+        if not captured:
+            captured = capture_screen_mss(screenshot_path)
+
+        if not captured:
+            print("Failed to capture screenshot. Ensure 'grim' (Wayland) or 'mss' (X11/Windows) is available.")
+            sys.exit(1)
+
+        try:
+            overlay = SelectionOverlay(screenshot_path)
+        except ValueError as e:
+            print(e)
+            sys.exit(1)
+        overlay.show()
+        sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
