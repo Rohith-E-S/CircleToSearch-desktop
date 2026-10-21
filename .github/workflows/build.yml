@@ -13,7 +13,7 @@ permissions:
 
 env:
   # System packages needed to build the Rust binary. xcap additionally needs
-  # clang/pipewire/wayland headers for its Linux capture backend.
+  # clang/pipewire/wayland/Mesa headers for its Linux capture backend.
   LINUX_DEPS: >-
     pkg-config
     libx11-dev
@@ -22,7 +22,9 @@ env:
     libgtk-3-dev
     libclang-dev
     libdbus-1-dev
+    libdrm-dev
     libegl-dev
+    libgbm-dev
     libpipewire-0.3-dev
     libwayland-dev
 

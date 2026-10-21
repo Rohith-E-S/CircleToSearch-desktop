@@ -95,6 +95,6 @@ Debian/Ubuntu:
 
 ```bash
 sudo apt-get install -y pkg-config libx11-dev libxcb1-dev libxrandr-dev \
-  libgtk-3-dev libclang-dev libdbus-1-dev libegl-dev libpipewire-0.3-dev \
-  libwayland-dev
+  libgtk-3-dev libclang-dev libdbus-1-dev libdrm-dev libegl-dev libgbm-dev \
+  libpipewire-0.3-dev libwayland-dev
 ```
