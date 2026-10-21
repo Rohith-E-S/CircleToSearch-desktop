@@ -12,7 +12,8 @@ path = "main.rs"
 [dependencies]
 eframe = "0.29"
 image = "0.25"
-screenshots = "0.8"
+# Actively maintained cross-platform screen capture (X11, macOS, Windows).
+xcap = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "multipart", "rustls-tls"] }

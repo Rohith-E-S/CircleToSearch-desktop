@@ -2,13 +2,13 @@ import sys
 import os
 import subprocess
 import shutil
-import math
 from tempfile import TemporaryDirectory
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QPoint, QRect
 from PyQt6.QtGui import QPainter, QPen, QColor, QPixmap, QCursor
 from config import Config
 from search_service import SearchService
+from selection import crop_bounds, fit_rect
 
 class SelectionOverlay(QWidget):
     def __init__(self, screenshot_path, geometry=None):
@@ -35,14 +35,24 @@ class SelectionOverlay(QWidget):
         self.selection_color = QColor(Config.SELECTION_COLOR)
         self.overlay_color = QColor(Config.OVERLAY_COLOR)
 
+    def image_rect(self):
+        """Area the captured image is drawn in, preserving its aspect ratio."""
+        rect = self.rect()
+        return fit_rect(
+            (rect.x(), rect.y(), rect.width(), rect.height()),
+            (self.pixmap.width(), self.pixmap.height()),
+        )
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
         # Draw background screenshot
-        # If the window is fullscreen, we want to draw the pixmap covering the whole window.
-        # Assuming the screenshot matches the window size (monitor or virtual desktop).
-        painter.drawPixmap(self.rect(), self.pixmap)
+        # The screenshot is drawn at its native aspect ratio so that the user
+        # selects against exactly what is on their screen.
+        painter.fillRect(self.rect(), Qt.GlobalColor.black)
+        target = self.image_rect()
+        painter.drawPixmap(QRect(int(target[0]), int(target[1]), int(target[2]), int(target[3])), self.pixmap)
         
         # Draw darken overlay
         painter.fillRect(self.rect(), self.overlay_color)
@@ -83,21 +93,22 @@ class SelectionOverlay(QWidget):
             self.cleanup_and_exit()
 
     def finish_selection(self):
-        rect = QRect(self.drag_start, self.current_pos).normalized().intersected(self.rect())
+        image_rect = self.image_rect()
+        drawn = QRect(int(image_rect[0]), int(image_rect[1]), int(image_rect[2]), int(image_rect[3]))
+        rect = QRect(self.drag_start, self.current_pos).normalized().intersected(drawn)
         
-        if rect.width() < 5 or rect.height() < 5:
+        bounds = crop_bounds(
+            (rect.x(), rect.y(), rect.width(), rect.height()),
+            image_rect,
+            (self.pixmap.width(), self.pixmap.height()),
+        )
+        if bounds is None:
             self.cleanup_and_exit()
             return
 
         self.hide()
         try:
-            scale_x = self.pixmap.width() / self.width()
-            scale_y = self.pixmap.height() / self.height()
-            x = int(rect.x() * scale_x)
-            y = int(rect.y() * scale_y)
-            right = min(self.pixmap.width(), math.ceil((rect.x() + rect.width()) * scale_x))
-            bottom = min(self.pixmap.height(), math.ceil((rect.y() + rect.height()) * scale_y))
-            SearchService.search(x, y, right - x, bottom - y, self.screenshot_path)
+            SearchService.search(*bounds, self.screenshot_path)
         finally:
             self.cleanup_and_exit()
 
@@ -130,18 +141,24 @@ def capture_screen_mss(path):
     """Capture screen using mss (Cross-platform)."""
     try:
         import mss
-        with mss.mss() as sct:
-            # Capture the primary monitor (or all). monitor[0] is 'All' combined.
-            # Using monitor 0 is usually safer for a full overlay.
+    except ImportError:
+        print("mss library not found. Please install it: pip install 'mss>=10'")
+        return False
+
+    try:
+        # mss>=10 exposes MSS directly; older releases only ship the
+        # (now deprecated) mss() factory.
+        factory = getattr(mss, "MSS", None) or mss.mss
+        with factory() as sct:
+            # mon=-1 captures the virtual desktop (every monitor combined) as a
+            # single image. This interpretation of -1 only exists from mss 10
+            # onwards; older releases treat it as the last physical monitor,
+            # hence the 'mss>=10' requirement.
             filename = sct.shot(mon=-1, output=path)
-            # mss adds the monitor number to filename usually if multiple shots, but shot() output=path is direct.
-            # However, shot() returns the filename created.
+            # mss writes the file itself, but be defensive about the name.
             if filename != path and os.path.exists(filename):
                 shutil.move(filename, path)
             return True
-    except ImportError:
-        print("mss library not found. Please install it: pip install mss")
-        return False
     except Exception as e:
         print(f"mss capture failed: {e}")
         return False

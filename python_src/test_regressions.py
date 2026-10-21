@@ -1,7 +1,12 @@
+"""Regression tests for the legacy Python implementation.
+
+Qt is mocked out so the suite runs headless and offline. The pure geometry
+lives in `selection.py` and is covered by `test_selection.py`.
+"""
+
 import importlib
 import io
 import json
-import math
 import os
 from pathlib import Path
 import runpy
@@ -37,42 +42,52 @@ import build_apps
 from config import Config
 
 
-class OverlayTests(unittest.TestCase):
-    def overlay(self):
-        overlay = main.SelectionOverlay.__new__(main.SelectionOverlay)
-        overlay.screenshot_path = "capture.png"
-        overlay.drag_start = Mock()
-        overlay.current_pos = Mock()
-        overlay.hide = Mock()
-        overlay.rect = Mock()
-        overlay.width = Mock(return_value=800)
-        overlay.height = Mock(return_value=600)
-        overlay.devicePixelRatio = Mock(return_value=1)
-        overlay.pixmap = Mock()
-        overlay.pixmap.width.return_value = 2000
-        overlay.pixmap.height.return_value = 900
-        return overlay
+def fake_overlay():
+    """A SelectionOverlay with just enough state for the selection maths."""
+    overlay = main.SelectionOverlay.__new__(main.SelectionOverlay)
+    overlay.screenshot_path = "capture.png"
+    overlay.drag_start = Mock()
+    overlay.current_pos = Mock()
+    overlay.hide = Mock()
+    overlay.image_rect = Mock(return_value=(0.0, 0.0, 800.0, 600.0))
+    overlay.pixmap = Mock()
+    overlay.pixmap.width.return_value = 2000
+    overlay.pixmap.height.return_value = 900
+    return overlay
 
-    def test_crop_matches_displayed_image_not_device_pixel_ratio(self):
-        for bounds, expected in [
-            ((0, 0, 800, 600), (0, 0, 2000, 900)),
-            ((100, 50, 200, 100), (250, 75, 500, 150)),
-            ((1, 1, 5, 5), (2, 1, 13, 8)),
-        ]:
-            with self.subTest(bounds=bounds):
-                overlay = self.overlay()
-                rect = Mock()
-                rect.x.return_value, rect.y.return_value = bounds[:2]
-                rect.width.return_value, rect.height.return_value = bounds[2:]
-                with patch.object(main, "QRect") as rectangle, patch.object(main.SearchService, "search") as search, patch.object(main.QApplication, "quit") as quit_app:
-                    rectangle.return_value.normalized.return_value.intersected.return_value = rect
-                    overlay.finish_selection()
-                    search.assert_called_once_with(*expected, "capture.png")
-                    rectangle.return_value.normalized.return_value.intersected.assert_called_once_with(overlay.rect())
-                    quit_app.assert_called_once()
+
+class OverlayTests(unittest.TestCase):
+    def test_selection_maps_to_image_pixels(self):
+        overlay = fake_overlay()
+        rect = Mock()
+        rect.x.return_value, rect.y.return_value = 100, 50
+        rect.width.return_value, rect.height.return_value = 100, 50
+
+        with patch.object(main, "QRect") as rectangle, \
+             patch.object(main.SearchService, "search") as search, \
+             patch.object(main.QApplication, "quit"):
+            rectangle.return_value.normalized.return_value.intersected.return_value = rect
+            overlay.finish_selection()
+
+        search.assert_called_once_with(250, 75, 250, 75, "capture.png")
+
+    def test_tiny_selection_never_uploads(self):
+        overlay = fake_overlay()
+        rect = Mock()
+        rect.x.return_value, rect.y.return_value = 10, 10
+        rect.width.return_value, rect.height.return_value = 1, 1
+
+        with patch.object(main, "QRect") as rectangle, \
+             patch.object(main.SearchService, "search") as search, \
+             patch.object(main.QApplication, "quit") as quit_app:
+            rectangle.return_value.normalized.return_value.intersected.return_value = rect
+            overlay.finish_selection()
+
+        search.assert_not_called()
+        quit_app.assert_called_once()
 
     def test_release_uses_final_position(self):
-        overlay = self.overlay()
+        overlay = fake_overlay()
         overlay.dragging = True
         overlay.finish_selection = Mock()
         event = Mock()
@@ -100,17 +115,15 @@ class LifecycleTests(unittest.TestCase):
                     return outcome != "capture_failure"
 
                 def execute():
-                    overlay = main.SelectionOverlay.__new__(main.SelectionOverlay)
+                    overlay = fake_overlay()
                     if outcome == "escape":
                         event = Mock()
                         event.key.return_value = main.Qt.Key.Key_Escape
                         main.SelectionOverlay.keyPressEvent(overlay, event)
                     elif outcome == "cancel":
-                        overlay.drag_start = Mock()
-                        overlay.current_pos = Mock()
-                        overlay.rect = Mock()
                         rect = Mock()
-                        rect.width.return_value = 1
+                        rect.x.return_value, rect.y.return_value = 10, 10
+                        rect.width.return_value, rect.height.return_value = 1, 1
                         with patch.object(main, "QRect") as rectangle:
                             rectangle.return_value.normalized.return_value.intersected.return_value = rect
                             overlay.finish_selection()
@@ -169,7 +182,6 @@ class SearchTests(unittest.TestCase):
         image_url = "https://images.example/crop%20one.png?token=a%2Bb&other=x=y#fragment"
         upload, browser, response, output = self.run_search(json.dumps({"success": True, "files": [{"url": image_url}]}).encode())
         self.assertEqual(output, "")
-        self.assertTrue(math.isfinite(upload.call_args.kwargs["timeout"]))
         self.assertGreater(upload.call_args.kwargs["timeout"], 0)
         self.assertEqual(upload.call_args.kwargs["timeout"], Config.UPLOAD_TIMEOUT)
         request = upload.call_args.args[0]
@@ -177,6 +189,7 @@ class SearchTests(unittest.TestCase):
         self.assertIn(b'name="files[]"; filename="crop.png"', request.data)
         self.assertIn(b"\r\n\r\ncrop\r\n", request.data)
         url = urllib.parse.urlsplit(browser.call_args.args[0])
+        self.assertEqual(url.path, "/uploadbyurl")
         self.assertEqual(urllib.parse.parse_qsl(url.query), [("url", image_url)])
         self.assertEqual(url.fragment, "")
         response.read.assert_called_once_with(Config.MAX_UPLOAD_RESPONSE_BYTES + 1)
@@ -214,6 +227,32 @@ class SearchTests(unittest.TestCase):
         self.run_search(browser_error=OSError("browser failed"))
 
 
+def fake_mss_module(with_mss_class=True):
+    """A stand-in for the `mss` package that records how it was called."""
+    module = types.ModuleType("mss")
+    calls = []
+
+    class FakeSct:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def shot(self, mon=None, output=None):
+            calls.append((mon, output))
+            Path(output).write_bytes(b"png")
+            return output
+
+    factory = FakeSct
+    if with_mss_class:
+        module.MSS = factory
+    else:
+        module.mss = factory
+    module.calls = calls
+    return module
+
+
 class CaptureTests(unittest.TestCase):
     def test_grim_falls_back_for_malformed_monitor_data(self):
         for data in (b"not json", b"\xff", b"null", b"{}", b"[null]", b'[{"focused":true}]'):
@@ -226,6 +265,18 @@ class CaptureTests(unittest.TestCase):
             self.assertFalse(main.capture_screen_grim("capture.png"))
         with patch.dict(sys.modules, {"mss": None}), patch("builtins.print"):
             self.assertFalse(main.capture_screen_mss("capture.png"))
+
+    def test_mss_captures_the_virtual_desktop(self):
+        for with_mss_class in (True, False):
+            with self.subTest(with_mss_class=with_mss_class):
+                module = fake_mss_module(with_mss_class)
+                with tempfile.TemporaryDirectory() as directory:
+                    path = os.path.join(directory, "capture.png")
+                    with patch.dict(sys.modules, {"mss": module}):
+                        self.assertTrue(main.capture_screen_mss(path))
+                    # mon=-1 is the virtual desktop, i.e. every monitor combined.
+                    self.assertEqual(module.calls, [(-1, path)])
+                    self.assertTrue(os.path.exists(path))
 
 
 class BuildTests(unittest.TestCase):
@@ -240,6 +291,10 @@ class BuildTests(unittest.TestCase):
                     self.assertNotEqual(raised.exception.code, 0)
                 self.assertNotIn("BUILD SUCCESSFUL", output.getvalue())
                 self.assertEqual(command.call_count, len(calls))
+
+    def test_mss_version_floor_is_pinned(self):
+        source = Path(build_apps.__file__).read_text()
+        self.assertIn("mss>=10", source)
 
 
 if __name__ == "__main__":

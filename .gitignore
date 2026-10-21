@@ -1,0 +1,14 @@
+# Rust
+rust_src/target/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# PyInstaller output
+build/
+dist/
+*.spec
