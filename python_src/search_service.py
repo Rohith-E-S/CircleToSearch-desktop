@@ -63,7 +63,10 @@ class SearchService:
                 parsed.port
             except ValueError:
                 raise ValueError("Invalid uploaded image URL") from None
-            search_url = Config.IMAGE_SEARCH_ENGINE_URL + urllib.parse.quote(image_url, safe='')
+            # Encode the image URL as a single query parameter. urlencode uses
+            # the same form-urlencoded rules as the Rust implementation, so
+            # both builds produce an identical request.
+            search_url = Config.IMAGE_SEARCH_ENGINE_URL + "?" + urllib.parse.urlencode({"url": image_url})
             if not webbrowser.open(search_url):
                 raise ValueError("Failed to open browser")
 

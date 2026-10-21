@@ -1,6 +1,6 @@
 class Config:
     # Search Engine Configuration
-    IMAGE_SEARCH_ENGINE_URL = "https://lens.google.com/uploadbyurl?url="
+    IMAGE_SEARCH_ENGINE_URL = "https://lens.google.com/uploadbyurl"
     UPLOAD_ENDPOINT = "https://uguu.se/upload"
 
     # UI Styling

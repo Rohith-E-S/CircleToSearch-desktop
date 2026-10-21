@@ -7,7 +7,7 @@ def install_build_deps():
     print("Checking and installing build dependencies...")
     subprocess.check_call([
         sys.executable, "-m", "pip", "install", 
-        "pyinstaller", "mss", "PyQt6",
+        "pyinstaller", "mss>=10", "PyQt6",
         "--trusted-host", "pypi.org",
         "--trusted-host", "pypi.python.org",
         "--trusted-host", "files.pythonhosted.org"

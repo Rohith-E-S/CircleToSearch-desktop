@@ -3,6 +3,7 @@ use reqwest::blocking::{multipart, Client, Response};
 use reqwest::Url;
 use serde::Deserialize;
 use std::io::Read;
+use std::process::{Command, Stdio};
 
 #[derive(Deserialize)]
 struct UploadResponse {
@@ -15,8 +16,35 @@ struct FileResponse {
     url: String,
 }
 
+/// Opens `url` in the user's browser.
+///
+/// `webbrowser` resolves the desktop's default handler, but it relies on
+/// `xdg-open` or `$BROWSER` being present. Minimal systems often have neither,
+/// so fall back to well-known browser binaries before giving up.
 fn open_browser(url: &str) -> Result<(), String> {
-    webbrowser::open(url).map_err(|_| "Failed to open browser".to_string())
+    if webbrowser::open(url).is_ok() {
+        return Ok(());
+    }
+
+    for command in [
+        "google-chrome",
+        "chromium",
+        "firefox",
+        "brave",
+        "microsoft-edge",
+    ] {
+        if Command::new(command)
+            .arg(url)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .is_ok()
+        {
+            return Ok(());
+        }
+    }
+
+    Err("Failed to open browser".to_string())
 }
 
 fn crop_image(
