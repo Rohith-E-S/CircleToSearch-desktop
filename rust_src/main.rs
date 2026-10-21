@@ -316,6 +316,10 @@ impl MyApp {
     /// The hint is intentionally unobtrusive: it is plain text with no
     /// background, so it does not cover the area the user is selecting.
     fn draw_status(&self, ui: &egui::Ui, image_rect: egui::Rect) {
+        if image_rect.width() <= 0.0 || image_rect.height() <= 0.0 {
+            return;
+        }
+
         let (message, is_error) = match &self.search_error {
             Some(error) => (
                 format!(
