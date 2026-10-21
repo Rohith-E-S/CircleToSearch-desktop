@@ -99,14 +99,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "CIRCLE_TO_SEARCH_COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          COMMIT="$(git rev-parse --short HEAD)"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "CIRCLE_TO_SEARCH_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+            VERSION="${GITHUB_REF#refs/tags/}"
           else
             VERSION="$(sed -n 's/^version[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' rust_src/Cargo.toml | head -n 1)"
-            echo "CIRCLE_TO_SEARCH_VERSION=${VERSION:-0.1.0}" >> "$GITHUB_ENV"
+            VERSION="${VERSION:-0.1.0}"
           fi
-          echo "Building version ${CIRCLE_TO_SEARCH_VERSION} (${CIRCLE_TO_SEARCH_COMMIT})"
+          echo "CIRCLE_TO_SEARCH_COMMIT=$COMMIT" >> "$GITHUB_ENV"
+          echo "CIRCLE_TO_SEARCH_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Building version $VERSION ($COMMIT)"
 
       - name: Build
         working-directory: rust_src
